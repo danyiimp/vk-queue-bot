@@ -12,8 +12,8 @@ from data import get_data, save_data, backup
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
 
 load_dotenv()
-BOT_TOKEN = getenv("BOT_TOKEN")
-GROUP_ID = getenv("GROUP_ID")
+BOT_TOKEN = getenv("bot_token")
+GROUP_ID = getenv("group_id")
 DATA_FILE = "data.json"
 ADMINS_FILE = "admins.json"
 BACKUP_DIR = "backups/"
