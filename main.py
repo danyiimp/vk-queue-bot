@@ -18,6 +18,9 @@ DATA_FILE = "data.json"
 ADMINS_FILE = "admins.json"
 BACKUP_DIR = "backups/"
 
+ic(BOT_TOKEN)
+ic(GROUP_ID)
+
 vk_session = vk_api.VkApi(token=BOT_TOKEN)
 vk = vk_session.get_api()
 longpoll = VkBotLongPoll(vk_session, group_id=GROUP_ID)
