@@ -1,5 +1,6 @@
 import vk_api
 import logging
+import time
 
 from icecream import ic
 from dotenv import load_dotenv
@@ -11,6 +12,16 @@ from data import get_data, save_data, backup
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
 
+class MyVkBotLongPoll(VkBotLongPoll):
+    def listen(self):
+        while True:
+            try: 
+                for event in self.check():
+                    yield event
+            except Exception as e:
+                logging.info(f"{e}\nПЕРЕПОДКЛЮЧЕНИЕ")
+                time.sleep(3)
+
 load_dotenv()
 BOT_TOKEN = getenv("bot_token")
 GROUP_ID = getenv("group_id")
@@ -18,12 +29,9 @@ DATA_FILE = "data.json"
 ADMINS_FILE = "admins.json"
 BACKUP_DIR = "backups/"
 
-ic(BOT_TOKEN)
-ic(GROUP_ID)
-
 vk_session = vk_api.VkApi(token=BOT_TOKEN)
 vk = vk_session.get_api()
-longpoll = VkBotLongPoll(vk_session, group_id=GROUP_ID)
+longpoll = MyVkBotLongPoll(vk_session, group_id=GROUP_ID)
 
 def get_name_from_user_id(user_id):
     user = vk.users.get(user_id=user_id)[0]
