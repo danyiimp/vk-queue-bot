@@ -25,9 +25,9 @@ class MyVkBotLongPoll(VkBotLongPoll):
 load_dotenv()
 BOT_TOKEN = getenv("bot_token")
 GROUP_ID = getenv("group_id")
-DATA_FILE = "data.json"
-ADMINS_FILE = "admins.json"
-BACKUP_DIR = "backups/"
+DATA_FILE = "data/data.json"
+ADMINS_FILE = "data/admins.json"
+BACKUP_DIR = "data/backups/"
 
 vk_session = vk_api.VkApi(token=BOT_TOKEN)
 vk = vk_session.get_api()
