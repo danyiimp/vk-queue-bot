@@ -6,7 +6,7 @@ import shutil
 def _is_file_empty(file_name):
     return os.stat(file_name).st_size == 0
 
-def get_data(file_name) -> list:
+def get_data(file_name) -> dict:
     with open(file_name) as f:
         if not _is_file_empty(file_name):
             return json.load(f)

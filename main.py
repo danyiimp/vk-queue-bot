@@ -5,6 +5,7 @@ import time
 from icecream import ic
 from dotenv import load_dotenv
 from os import getenv
+from threading import Timer
 
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType, VkBotEvent
 
@@ -27,6 +28,7 @@ BOT_TOKEN = getenv("bot_token")
 GROUP_ID = getenv("group_id")
 DATA_FILE = "data/data.json"
 ADMINS_FILE = "data/admins.json"
+TIMEOUTS_FILE = "data/timeouts.json"
 BACKUP_DIR = "data/backups/"
 
 vk_session = vk_api.VkApi(token=BOT_TOKEN)
@@ -38,11 +40,17 @@ def get_name_from_user_id(user_id):
     name = f"{user['first_name']} {user['last_name']}"
     return name
 
+def get_timeout_text_from_user_id(chat_timeouts, user_id):
+    if user_id in chat_timeouts:
+        return " ПРОПУСКАЕТ"
+    return ""
+
 def help_handler(event: VkBotEvent):
     msg = """
     Список доступных комманд:\n
     /end – встать в конец очереди.
     /list – текущая очередь.
+    /skip – пропустить 24ч.
     /drop – сбросить очередь (для избранных).
     /admins – список избранных. 
     """
@@ -85,7 +93,7 @@ def list_handler(event: VkBotEvent):
     if data.get(str(chat_id)):
         chat_data = data[str(chat_id)]
     else:
-        msg = "Очередь не сформирована."
+        msg = "Очередь несформирована."
         vk.messages.send(
             chat_id=event.chat_id,
             message=msg,
@@ -93,10 +101,19 @@ def list_handler(event: VkBotEvent):
         )
         return
 
+    timeouts = get_data(TIMEOUTS_FILE)
+    if timeouts.get(str(chat_id)):
+        chat_timeouts = timeouts[str(chat_id)]
+        timeouts_text = [get_timeout_text_from_user_id(chat_timeouts, user_id) for user_id in chat_data]
+    else:
+        timeouts_text = ["" for user_id in chat_data]
+
     names = [get_name_from_user_id(int(user_id)) for user_id in chat_data]
 
-    msg = "\n".join(f"{i+1}. {name}" for i, name in enumerate(names))
+    names_statuses = zip(names, timeouts_text)
 
+    msg = "\n".join(f"{i+1}. {name_status[0]}{name_status[1]}" for i, name_status in enumerate(names_statuses))
+    
     vk.messages.send(
         chat_id=event.chat_id,
         message=msg,
@@ -123,7 +140,7 @@ def drop_handler(event: VkBotEvent):
                     random_id=0
                 )    
             else:
-                msg = "Не достаточно прав."
+                msg = "Недостаточно прав."
                 vk.messages.send(
                     chat_id=event.chat_id,
                     message=msg,
@@ -138,7 +155,7 @@ def drop_handler(event: VkBotEvent):
                 random_id=0
             )      
     else:
-        msg = "Очередь не сформирована."
+        msg = "Очередь несформирована."
         vk.messages.send(
             chat_id=event.chat_id,
             message=msg,
@@ -167,6 +184,88 @@ def admins_handler(event: VkBotEvent):
             random_id=0
         )     
 
+def skip_handler(event: VkBotEvent):
+    data = get_data(DATA_FILE)
+    timeouts = get_data(TIMEOUTS_FILE)
+    user_id = event.message["from_id"]
+    chat_id = event.message["peer_id"] - 2000000000
+
+    msg = f"Сначала встаньте в очередь – /end."
+    if data.get(str(chat_id)):
+        chat_data = data[str(chat_id)]
+        if user_id not in chat_data:
+            vk.messages.send(
+                chat_id=event.chat_id,
+                message=msg,
+                random_id=0
+            )
+            return            
+    else:
+        vk.messages.send(
+            chat_id=event.chat_id,
+            message=msg,
+            random_id=0
+        )
+        return
+
+
+    if timeouts.get(str(chat_id)):
+        chat_timeouts = timeouts[str(chat_id)]
+    else:
+        chat_timeouts = []
+
+    if user_id in chat_timeouts:
+        msg = f"Вы уже пропускате день."
+        vk.messages.send(
+            chat_id=event.chat_id,
+            message=msg,
+            random_id=0
+        )
+        return
+
+    chat_timeouts.append(user_id)
+
+    #Создание потока с таймером
+    timeout_in_sec = 30
+    t = Timer(timeout_in_sec, remove_skip, args=(chat_id, user_id))
+    t.start()
+
+    timeouts[str(chat_id)] = chat_timeouts
+    save_data(timeouts, TIMEOUTS_FILE)
+
+    name = get_name_from_user_id(int(user_id))
+    msg = f"{name} пропускает день."
+
+    vk.messages.send(
+        chat_id=event.chat_id,
+        message=msg,
+        random_id=0
+    )     
+
+def remove_skip(chat_id: int, user_id: int):
+    timeouts = get_data(TIMEOUTS_FILE)
+
+    e = Exception("ОШИБКА УДАЛЕНИЯ TIMEOUT")
+
+    if timeouts.get(str(chat_id)):
+        chat_timeouts: list = timeouts[str(chat_id)]
+        if user_id not in chat_timeouts:
+            raise e
+        chat_timeouts.remove(user_id)
+        timeouts[str(chat_id)] = chat_timeouts
+        save_data(timeouts, TIMEOUTS_FILE)
+
+        name = get_name_from_user_id(int(user_id))
+        # msg = f"{name} возвращается в строй."
+
+        # vk.messages.send(
+        #     chat_id=chat_id,
+        #     message=msg,
+        #     random_id=0
+        # )  
+
+    else:
+        raise e
 
 def main():
     filter_dict = {
@@ -174,7 +273,8 @@ def main():
         "/end": end_handler,
         "/list": list_handler,
         "/drop": drop_handler,
-        "/admins": admins_handler
+        "/admins": admins_handler,
+        "/skip": skip_handler
     }
 
     for event in longpoll.listen():
