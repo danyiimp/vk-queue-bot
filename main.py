@@ -226,7 +226,7 @@ def skip_handler(event: VkBotEvent):
     chat_timeouts.append(user_id)
 
     #Создание потока с таймером
-    timeout_in_sec = 30
+    timeout_in_sec = 60 * 60 * 24
     t = Timer(timeout_in_sec, remove_skip, args=(chat_id, user_id))
     t.start()
 
