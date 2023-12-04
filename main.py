@@ -42,7 +42,7 @@ def get_name_from_user_id(user_id):
 
 def get_timeout_text_from_user_id(chat_timeouts, user_id):
     if user_id in chat_timeouts:
-        return " ПРОПУСКАЕТ"
+        return " &#128683;"
     return ""
 
 def help_handler(event: VkBotEvent):
